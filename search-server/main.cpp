@@ -11,6 +11,10 @@ using namespace std;
 
 //определяет максимальное число документов, которые будут выведены
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+//разделитель слов
+const char word_separator = ' ';
+//идентификатор минус-слова
+const char minus_word_indicator = '-';
 
 //чтение строки
 string ReadLine() {
@@ -32,7 +36,7 @@ vector<string> SplitIntoWords(const string& text) {
     vector<string> words;
     string word;
     for (const char c : text) {
-        if (c == ' ') {
+        if (c == word_separator) {
             if (!word.empty()) {
                 words.push_back(word);
                 word.clear();
@@ -56,7 +60,6 @@ struct Document {
 
 class SearchServer {
 public:
-//метод, наполняющий stop_words_ стоп-словами
     void SetStopWords(const string& text) {
         for (const string& word : SplitIntoWords(text)) {
             stop_words_.insert(word);
@@ -67,9 +70,10 @@ public:
     void AddDocument(int document_id, const string& document) {
 		//разобъём строку-документ на слова, исключая стоп-слова
         const vector<string> words = SplitIntoWordsNoStop(document);
+        const double tf = 1.0/static_cast<double> (words.size());
 		//заполняем word_to_documents_freqs_ словами из запроса, привязывая к ним id и tf
         for(const string& word : words){
-            word_to_documents_freqs_[word][document_id] += 1.0/words.size();
+            word_to_documents_freqs_[word][document_id] += tf;
         }
         ++document_count_;
     }
@@ -124,7 +128,7 @@ private:
     Query ParseQuery(const string& text) const {
         Query query_words;
         for (const string& word : SplitIntoWordsNoStop(text)) {
-            if (word[0] == '-'){
+            if (word[0] == minus_word_indicator){
                 query_words.minus_words.insert(word.substr(1));
             }
             else{
@@ -133,6 +137,11 @@ private:
             
         }
         return query_words;
+    }
+
+    double CalculateIDF(const string& word) const {
+    	double idf = log(document_count_/(word_to_documents_freqs_.at(word).size()*1.0));
+    	return idf;
     }
 
 	//метод, который ищет документы, соответствующие запросу
@@ -146,7 +155,7 @@ private:
 			//если слово не "" и содержится в документах
 			if((!word.empty()) && (!(word_to_documents_freqs_.count(word) == 0))){
 				//считаем idf
-				double idf = log(document_count_/(word_to_documents_freqs_.at(word).size()*1.0));
+				double idf = CalculateIDF(word);
 				//для каждого плюс-слова, которое есть в документах, считаем релевантность
 				for (const auto& [id,tf] : word_to_documents_freqs_.at(word)){
 					document_to_relevance[id] += idf*tf;
