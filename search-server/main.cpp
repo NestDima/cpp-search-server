@@ -684,7 +684,7 @@ void TestRelevanceAccuracy() {
 
 // Функция TestSearchServer является точкой входа для запуска тестов
 void TestSearchServer() {
-	RUN_TEST(TestAddDocument);
+    RUN_TEST(TestAddDocument);
     RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
     RUN_TEST(TestDocumentWithMinusWordsExcluded);
     RUN_TEST(TestExcludeMatching);
