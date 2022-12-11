@@ -435,11 +435,11 @@ void TestRelevanceSorting() {
 
         const int doc_id_2 = 43;
         const string content_2 = "bat bat in the city city city"s;
-        const vector<int> ratings_2 = {4, 5, 6};
+        const vector<int> ratings_2 = {1, 2, 3};
 
         const int doc_id_3 = 44;
         const string content_3 = "pin pin pin in the city"s;
-        const vector<int> ratings_3 = {2, 4, 2};
+        const vector<int> ratings_3 = {1, 2, 3};
 
         SearchServer server;
         server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
@@ -449,6 +449,7 @@ void TestRelevanceSorting() {
         ASSERT(found_docs.size() == 3);
         ASSERT_EQUAL(found_docs[0].id, doc_id_3);
         ASSERT_EQUAL(found_docs[1].id, doc_id_2);
+		//не уверен, что понял замечание в этом месте... Но для пущей убедительности сделал одинаковый рейтинг, чтобы сортировка в лямбда-функции проводилась точно только по релевантности
         ASSERT_EQUAL(found_docs[2].id, doc_id_1);
     }
 
@@ -488,7 +489,31 @@ void TestRating() {
         server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
         const auto found_docs = server.FindTopDocuments("cat bat pin"s);
         ASSERT(!found_docs.empty());
-        ASSERT(found_docs[0].rating == round((1+2+3+0.0)/3));
+        ASSERT(abs(found_docs[0].rating - round((1+2+3+0.0)/3)) <= epsilon);
+    }
+	
+	{
+        const int doc_id_1 = 42;
+        const string content_1 = "cat in the city city city"s;
+        const vector<int> ratings_1 = {-1, -2, -3};
+
+        SearchServer server;
+        server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
+        const auto found_docs = server.FindTopDocuments("cat bat pin"s);
+        ASSERT(!found_docs.empty());
+        ASSERT(abs(found_docs[0].rating - round((-1-2-3+0.0)/3)) <= epsilon);
+    }
+	
+	{
+        const int doc_id_1 = 42;
+        const string content_1 = "cat in the city city city"s;
+        const vector<int> ratings_1 = {1, -2, -3};
+
+        SearchServer server;
+        server.AddDocument(doc_id_1, content_1, DocumentStatus::ACTUAL, ratings_1);
+        const auto found_docs = server.FindTopDocuments("cat bat pin"s);
+        ASSERT(!found_docs.empty());
+        ASSERT(abs(found_docs[0].rating - round((1-2-3+0.0)/3)) <= epsilon);
     }
 }
 
@@ -540,24 +565,63 @@ void TestLambdaFilter() {
 
 //Тест проверяет, что работает поиск документов, имеющих заданный статус
 void TestStatus() {
-    const int doc_id = 42;
-    const string content = "cat in the city city city"s;
-    const vector<int> ratings = {1, 2, 3};
-    const DocumentStatus document_status = DocumentStatus::BANNED;
+    const int doc_id1 = 42;
+    const string content1 = "cat in the city"s;
+    const vector<int> ratings1 = {1, 2, 3};
+    const DocumentStatus document_status1 = DocumentStatus::ACTUAL;
+
+    const int doc_id2 = 43;
+    const string content2 = "bat in the city"s;
+    const vector<int> ratings2 = {4, 5, 6};
+    const DocumentStatus document_status2 = DocumentStatus::IRRELEVANT;
+
+    const int doc_id3 = 44;
+    const string content3 = "pin in the city"s;
+    const vector<int> ratings3 = {7, 8, 9};
+    const DocumentStatus document_status3 = DocumentStatus::BANNED;
+
+    const int doc_id4 = 45;
+    const string content4 = "core in the city"s;
+    const vector<int> ratings4 = {10, 11, 12};
+    const DocumentStatus document_status4 = DocumentStatus::REMOVED;
 
     {
         SearchServer server;
-        server.AddDocument(doc_id, content, document_status, ratings);
-        const auto found_docs = server.FindTopDocuments("cat pin bat"s, DocumentStatus::ACTUAL);
-        ASSERT(found_docs.empty());
+        server.AddDocument(doc_id1, content1, document_status1, ratings1);
+        server.AddDocument(doc_id2, content2, document_status2, ratings2);
+        server.AddDocument(doc_id3, content3, document_status3, ratings3);
+        server.AddDocument(doc_id4, content4, document_status4, ratings4);
+        const auto found_docs_actual = server.FindTopDocuments("bat pin core"s, DocumentStatus::ACTUAL);
+        ASSERT(found_docs_actual.empty());
+        const auto found_docs_irrelevant = server.FindTopDocuments("cat pin core"s, DocumentStatus::IRRELEVANT);
+        ASSERT(found_docs_irrelevant.empty());
+        const auto found_docs_banned = server.FindTopDocuments("cat bat core"s, DocumentStatus::BANNED);
+        ASSERT(found_docs_banned.empty());
+        const auto found_docs_removed = server.FindTopDocuments("cat pin bat"s, DocumentStatus::REMOVED);
+        ASSERT(found_docs_removed.empty());
     }
 
     {
         SearchServer server;
-        server.AddDocument(doc_id, content, DocumentStatus::BANNED, ratings);
-        const auto found_docs = server.FindTopDocuments("cat pin bat"s, DocumentStatus::BANNED);
-        ASSERT(!found_docs.empty());
-        ASSERT_EQUAL(found_docs[0].id, doc_id);
+        server.AddDocument(doc_id1, content1, document_status1, ratings1);
+        server.AddDocument(doc_id2, content2, document_status2, ratings2);
+        server.AddDocument(doc_id3, content3, document_status3, ratings3);
+        server.AddDocument(doc_id4, content4, document_status4, ratings4);
+        const auto found_docs_actual = server.FindTopDocuments("cat pin bat core"s, DocumentStatus::ACTUAL);
+        ASSERT(!found_docs_actual.empty());
+        ASSERT_EQUAL(found_docs_actual[0].id, doc_id1);
+
+        const auto found_docs_irrelevant = server.FindTopDocuments("cat pin bat core"s, DocumentStatus::IRRELEVANT);
+        ASSERT(!found_docs_irrelevant.empty());
+        ASSERT_EQUAL(found_docs_irrelevant[0].id, doc_id2);
+
+        const auto found_docs_banned = server.FindTopDocuments("cat pin bat core"s, DocumentStatus::BANNED);
+        ASSERT(!found_docs_banned.empty());
+        ASSERT_EQUAL(found_docs_banned[0].id, doc_id3);
+
+        const auto found_docs_removed = server.FindTopDocuments("cat pin bat core"s, DocumentStatus::REMOVED);
+        ASSERT(!found_docs_removed.empty());
+        ASSERT_EQUAL(found_docs_removed[0].id, doc_id4);
     }
 }
 
@@ -583,11 +647,11 @@ void TestRelevanceAccuracy() {
         const auto found_docs = server.FindTopDocuments("cat fox dog"s);
         ASSERT(found_docs.size() == 3);
         ASSERT_EQUAL(found_docs[0].id, doc_id_3);
-        ASSERT(abs(found_docs[0].relevance - log(3)/2) < 1e-6);
+        ASSERT(abs(found_docs[0].relevance - log(3)/2) < epsilon);
         ASSERT_EQUAL(found_docs[1].id, doc_id_2);
-        ASSERT(abs(found_docs[1].relevance - log(3)/3) < 1e-6);
+        ASSERT(abs(found_docs[1].relevance - log(3)/3) < epsilon);
         ASSERT_EQUAL(found_docs[2].id, doc_id_1);
-        ASSERT(abs(found_docs[2].relevance - log(3)/6) < 1e-6);
+        ASSERT(abs(found_docs[2].relevance - log(3)/6) < epsilon);
     }
 
     {
@@ -610,11 +674,11 @@ void TestRelevanceAccuracy() {
         const auto found_docs = server.FindTopDocuments("cat fox dog"s);
         ASSERT(found_docs.size() == 3);
         ASSERT_EQUAL(found_docs[0].id, doc_id_1);
-        ASSERT(abs(found_docs[0].relevance - 0.25068) < 1e-6);
+        ASSERT(abs(found_docs[0].relevance - 0.25068) < epsilon);
         ASSERT_EQUAL(found_docs[1].id, doc_id_2);
-        ASSERT(abs(found_docs[1].relevance - 0.0675775) < 1e-6);
+        ASSERT(abs(found_docs[1].relevance - 0.0675775) < epsilon);
         ASSERT_EQUAL(found_docs[2].id, doc_id_3);
-        ASSERT(abs(found_docs[2].relevance - 0) < 1e-6);
+        ASSERT(abs(found_docs[2].relevance - 0) < epsilon);
     }
 }
 
