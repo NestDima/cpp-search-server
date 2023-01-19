@@ -1,29 +1,3 @@
-/*
-Марина, большое спасибо за ревью! 
-Оставлю ряд пояняющих комментариев по поводу предыдущего ревью: 
-1) Два контейнера id возникло по причине того, что по ходу выпонения заданий
-в тренажёре код несколько раз переписывался и в один момент я вместо set 
-перешёл на map (полностью согласен, что и этот контейнер был изначально 
-неоптимален и vector гораздо экономичнее, но я только учусь и иногда могу 
-забывать об оптимизации), но забыл удалить неиспользуемый контейнер, так он и остался.
-
-2) Переход к возвращаемым значениям bool у методов SplitIntoWordsNoStop и ParseQuery
-связан с тем, что unit-тестирование выдавало ошибки при попытке скормить MatchDocuments и 
-FindTopDocument неверные данные - не выдавалось throw invalid_argument("Invalid symbols or 
-word with minus-symbols only!"). В попытках исправить эту ошибку долго и мучительно
-перелопачивал код, в итоге заработало только если проверку делать в ParseQuery и 
-SplitIntoWordsNoStop в виде возвращаемого аргумента типа bool в методах MatchDocuments и 
-FindTopDocument (как это было реальзовано мной в уроке 
-"Используем для обработки ошибок коды возврата"). 
-
-3) Избавился от ParseWordQuery потому, что, похоже, не правильно понял комментарий 
-"стоит спрятать внутрь и убрать дублирование", Собрал все проверки в одну функцию 
-ParseQuery. 
-
-Постарался в этот раз учесть все замечания за оба ревью, вернул потерянные методы, 
-нашёл другой подход в возвращении исключений. 
-*/
-
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -86,6 +60,10 @@ struct Document {
     int rating = 0;
 };
 
+ostream& operator << (ostream& out, const Document search){
+   return out << "{ document_id = " << search.id << ", relevance = " << search.relevance << ", rating = " << search.rating << " }";
+}
+
 template <typename StringContainer>
 set<string> MakeUniqueNonEmptyStrings(const StringContainer& strings){
     set<string> non_empty_strings;
@@ -112,7 +90,7 @@ public:
             for (string word : stop_words){
                 if (!IsValidWord(word)){
                     stop_words_.clear();
-                    throw invalid_argument("Invalid symbols or word with minus-symbols only!");                
+                    throw invalid_argument("Invalid symbols or word with minus-symbols only!");
                 }
             }
         }
@@ -152,7 +130,7 @@ public:
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
-            return matched_documents;  
+            return matched_documents;
     }
 
     vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status) const {
@@ -190,7 +168,7 @@ public:
                 break;
             }
         }
-        return { matched_words, documents_.at(document_id).status };    
+        return { matched_words, documents_.at(document_id).status };
     }
 
     int GetDocumentId(int index){
@@ -313,6 +291,7 @@ private:
             }
             for (const auto [document_id, _] : word_to_document_freqs_.at(word)){
                 document_to_relevance.erase(document_id);
+                (void)_;
             }
         }
 
@@ -326,6 +305,85 @@ private:
 
 };
 
-int main(){
+//небольшой класс, который позволит работать с парами итераторов (начало и конец страницы
+template<typename Iterator>
+	class IteratorRange {
+	public:
+    	IteratorRange(const Iterator begin, const Iterator end)
+    		: page_(begin, end)
+    	{}
+    	auto begin() const {
+    		return page_.first;
+    	}
+    	auto end() const {
+    		return page_.second;
+    	}
+    	size_t size() const {
+    		return (distance(begin, end - 1));
+    	}
 
-} 
+	private:
+    	pair<Iterator, Iterator> page_;
+	};
+
+template<typename Iterator>
+ostream& operator <<(ostream& os, const IteratorRange<Iterator>& page ) {
+    for (auto it = page.begin(); it != page.end(); ++it) {
+        os << *it;
+    }
+    return os;
+}
+
+//класс, отвечающий за разделение по страницам
+template <typename Iterator>
+   class Paginator {
+   public:
+       Paginator(Iterator begin, Iterator end, int size) : page_size_(size){
+               Iterator begining = begin;
+               Iterator ending = begin;
+               while(distance(ending, end) > size) {
+                   advance(ending, size);
+                   pages_.push_back(IteratorRange(begining, ending));
+                   begining = ending;
+               }
+               if (begining < end) {
+            	   pages_.push_back(IteratorRange(ending, end));
+               }
+           }
+
+       auto begin() const {
+           return pages_.begin();
+       }
+       auto end() const {
+           return pages_.end();
+       }
+       int size() const {
+           return page_size_;
+       }
+
+       private:
+       	   int page_size_;
+       	   vector<IteratorRange<Iterator>> pages_;
+       };
+
+template <typename Container>
+auto Paginate(const Container& c, size_t page_size) {
+   return Paginator(begin(c), end(c), page_size);
+}
+
+int main() {
+   SearchServer search_server("and with"s);
+   search_server.AddDocument(1, "funny pet and nasty rat"s, DocumentStatus::ACTUAL, {7, 2, 7});
+   search_server.AddDocument(2, "funny pet with curly hair"s, DocumentStatus::ACTUAL, {1, 2, 3});
+   search_server.AddDocument(3, "big cat nasty hair"s, DocumentStatus::ACTUAL, {1, 2, 8});
+   search_server.AddDocument(4, "big dog cat Vladislav"s, DocumentStatus::ACTUAL, {1, 3, 2});
+   search_server.AddDocument(5, "big dog hamster Borya"s, DocumentStatus::ACTUAL, {1, 1, 1});
+   const auto search_results = search_server.FindTopDocuments("curly dog"s);
+   int page_size = 2;
+   const auto pages = Paginate(search_results, page_size);
+   // Выводим найденные документы по страницам
+   for (auto page = pages.begin(); page != pages.end(); ++page) {
+       cout << *page << endl;
+       cout << "Page break"s << endl;
+   }
+}
