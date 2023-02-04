@@ -38,6 +38,7 @@ SearchServer::SearchServer(const string& stop_words_text)
     }
 
     tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, int document_id) const {
+    	LOG_DURATION_STREAM("MatchDocument operation time:", std::cout);
         vector<string> matched_words;
         const Query query = ParseQuery(raw_query);
         for (const string& word : query.plus_words){
