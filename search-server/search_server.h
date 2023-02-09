@@ -31,6 +31,12 @@ public:
 
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
     int GetDocumentId(int index);
+    std::vector<int>::iterator begin();
+    std::vector<int>::iterator end();
+
+    void RemoveDocument(int document_id);
+    
+   const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
 
 private:
     struct DocumentData {
@@ -41,6 +47,7 @@ private:
     std::map<std::string, std::map<int, double>> word_to_document_freqs_;
     std::map<int, DocumentData> documents_;
     std::vector<int> count_to_id_;
+    std::map<int, std::map<std::string, double>> word_frequencies_;
 
     static bool IsValidWord(const std::string& word);
 
@@ -86,7 +93,7 @@ SearchServer::SearchServer(const StringContainer& stop_words)
 
 template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const {
-	LOG_DURATION_STREAM("FindTopDocument operation time:", std::cout);
+	//LOG_DURATION_STREAM("FindTopDocument operation time:", std::cout);
     const SearchServer::Query query = SearchServer::ParseQuery(raw_query);
     auto matched_documents = FindAllDocuments(query, document_predicate);
     sort(matched_documents.begin(), matched_documents.end(),
