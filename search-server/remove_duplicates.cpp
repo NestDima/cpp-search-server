@@ -15,20 +15,23 @@ void RemoveDuplicates(SearchServer& search_server) {
         	(void) frequencies;
             document_words.insert(word);
         }
+
         if (words_doc.count(document_words)) {
-            int prev_doc_id = words_doc[document_words];
-            if (prev_doc_id > document_id) {
+            int prev_id = words_doc[document_words];
+            if (prev_id > document_id) {
                 words_doc[document_words] = document_id;
-                duplicates.insert(prev_doc_id);
-            } else {
+                duplicates.insert(prev_id);
+            }
+            else {
                 duplicates.insert(document_id);
             }
-        } else {
+        }
+        else {
             words_doc[document_words] = document_id;
         }
     }
 //удаляем найденные дубликаты
-    for ( int document_id : duplicates ) {
+    for (int document_id : duplicates) {
         cout << "Found duplicate document id " << document_id << endl;
         search_server.RemoveDocument(document_id);
     }
