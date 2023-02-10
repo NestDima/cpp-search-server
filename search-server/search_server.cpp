@@ -10,10 +10,10 @@ SearchServer::SearchServer(const string& stop_words_text)
                 }
 
     void SearchServer::AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings){
-        if (find(count_to_id_.begin(), count_to_id_.end(), document_id) != count_to_id_.end() || !IsValidWord(document) || document_id < 0){
+        if (find(doc_ids_set_.begin(), doc_ids_set_.end(), document_id) != doc_ids_set_.end() || !IsValidWord(document) || document_id < 0){
             throw invalid_argument("Invalid symbols, word with minus-symbols only or invalid document id!");
         }
-        count_to_id_.insert(count_to_id_.end(), document_id);
+        doc_ids_set_.insert(doc_ids_set_.end(), document_id);
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words){
@@ -62,16 +62,12 @@ SearchServer::SearchServer(const string& stop_words_text)
         return { matched_words, documents_.at(document_id).status };
     }
 
-    int SearchServer::GetDocumentId(int index){
-        return count_to_id_.at(index);
+    set<int>::iterator SearchServer::begin(){
+        return doc_ids_set_.begin();
     }
 
-    vector<int>::iterator SearchServer::begin(){
-        return count_to_id_.begin();
-    }
-
-    vector<int>::iterator SearchServer::end(){
-        return count_to_id_.end();
+    set<int>::iterator SearchServer::end(){
+        return doc_ids_set_.end();
     }
 
     bool SearchServer::IsValidWord(const string& word){
@@ -143,12 +139,27 @@ SearchServer::SearchServer(const string& stop_words_text)
     }
 
     const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const{
-        static const std::map<std::string, double> emptyes;
-        return (!word_frequencies_.count(document_id)) ? emptyes : word_frequencies_.at(document_id);
+        //переделано в условном виде
+        if (!documents_.count(document_id)) {
+            static map<string, double> empty;
+            return empty;
+        }
+        return (map<string, double>&) word_frequencies_.at(document_id);
+//        static const std::map<std::string, double> emptyes;
+//        return (!word_frequencies_.count(document_id)) ? emptyes : word_frequencies_.at(document_id);
     }
 
     void SearchServer::RemoveDocument(int document_id){
+        //добавлено удаление из word_to_document_freqs_
+        if (doc_ids_set_.find(document_id) != doc_ids_set_.end()) {
+            for (auto& [word, freqs] : word_frequencies_[document_id]) {
+                (void)freqs;
+                auto erase_word = word_to_document_freqs_[word].find(document_id);
+                word_to_document_freqs_[word].erase(erase_word);
+            }
+        }
         word_frequencies_.erase(document_id);
         documents_.erase(document_id);
-        count_to_id_.erase(find(count_to_id_.begin(), count_to_id_.end(), document_id));
+        doc_ids_set_.erase(document_id);
+
     }

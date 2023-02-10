@@ -3,7 +3,7 @@
 using namespace std;
 
 void RemoveDuplicates(SearchServer& search_server) {
-	//LOG_DURATION_STREAM("RemoveDuplicates operation time:", std::cout);
+    //LOG_DURATION_STREAM("RemoveDuplicates operation time:", std::cout);
     set<int> duplicates;
     map<set<string>, int> words_doc;
 
@@ -12,7 +12,7 @@ void RemoveDuplicates(SearchServer& search_server) {
         set<string> document_words;
         const map<string, double> word_frequencies = search_server.GetWordFrequencies(document_id);
         for (auto [word, frequencies] : word_frequencies) {
-        	(void) frequencies;
+            (void) frequencies;
             document_words.insert(word);
         }
 
