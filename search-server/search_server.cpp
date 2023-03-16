@@ -10,7 +10,7 @@ SearchServer::SearchServer(const string& stop_words_text)
                 }
 
     void SearchServer::AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings){
-        if (find(doc_ids_set_.begin(), doc_ids_set_.end(), document_id) != doc_ids_set_.end() || !IsValidWord(document) || document_id < 0){
+        if (documents_.count(document_id) > 0 || !IsValidWord(document) || document_id < 0){
             throw invalid_argument("Invalid symbols, word with minus-symbols only or invalid document id!");
         }
         doc_ids_set_.insert(doc_ids_set_.end(), document_id);
@@ -39,7 +39,6 @@ SearchServer::SearchServer(const string& stop_words_text)
     }
 
     tuple<vector<string>, DocumentStatus> SearchServer::MatchDocument(const string& raw_query, int document_id) const {
-    	//LOG_DURATION_STREAM("MatchDocument operation time:", std::cout);
         vector<string> matched_words;
         const Query query = ParseQuery(raw_query);
         for (const string& word : query.plus_words){
@@ -139,18 +138,14 @@ SearchServer::SearchServer(const string& stop_words_text)
     }
 
     const map<string, double>& SearchServer::GetWordFrequencies(int document_id) const{
-        //переделано в условном виде
         if (!documents_.count(document_id)) {
             static map<string, double> empty;
             return empty;
         }
-        return (map<string, double>&) word_frequencies_.at(document_id);
-//        static const std::map<std::string, double> emptyes;
-//        return (!word_frequencies_.count(document_id)) ? emptyes : word_frequencies_.at(document_id);
+        return word_frequencies_.at(document_id);
     }
 
     void SearchServer::RemoveDocument(int document_id){
-        //добавлено удаление из word_to_document_freqs_
         if (doc_ids_set_.find(document_id) != doc_ids_set_.end()) {
             for (auto& [word, freqs] : word_frequencies_[document_id]) {
                 (void)freqs;

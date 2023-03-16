@@ -10,8 +10,8 @@
 #include "read_input_functions.h"
 #include "log_duration.h"
 
-const int kMaxResaultDocumentCount = 5;
-const double kEpsilon = 1e-6;
+const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double epsilon = 1e-6;
 
 class SearchServer {
 public:
@@ -92,20 +92,19 @@ SearchServer::SearchServer(const StringContainer& stop_words)
 
 template <typename DocumentPredicate>
 std::vector<Document> SearchServer::FindTopDocuments(const std::string& raw_query, DocumentPredicate document_predicate) const {
-	//LOG_DURATION_STREAM("FindTopDocument operation time:", std::cout);
     const SearchServer::Query query = SearchServer::ParseQuery(raw_query);
     auto matched_documents = FindAllDocuments(query, document_predicate);
     sort(matched_documents.begin(), matched_documents.end(),
-        [](const Document& lhs, const Document& rhs) {
-            if (std::abs(lhs.relevance - rhs.relevance) < kEpsilon) {
+        [this](const Document& lhs, const Document& rhs) {
+            if (std::abs(lhs.relevance - rhs.relevance) < epsilon) {
                 return lhs.rating > rhs.rating;
             }
             else {
                 return lhs.relevance > rhs.relevance;
             }
         });
-    if (matched_documents.size() > kMaxResaultDocumentCount) {
-        matched_documents.resize(kMaxResaultDocumentCount);
+    if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
+        matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
     }
         return matched_documents;
 }
