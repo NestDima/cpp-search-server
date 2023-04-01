@@ -7,7 +7,7 @@ RequestQueue::RequestQueue(const SearchServer& search_server)
         , requests_without_resault_(0)
         , current_time_(0){
     }
-    vector<Document> RequestQueue::AddFindRequest(const string& raw_query, DocumentStatus status) {
+    vector<Document> RequestQueue::AddFindRequest(string_view raw_query, DocumentStatus status) {
         ++current_time_;
         const auto result = search_server_.FindTopDocuments(raw_query, status);
         RemoveOld();
@@ -18,7 +18,7 @@ RequestQueue::RequestQueue(const SearchServer& search_server)
         }
         return {};
     }
-    vector<Document> RequestQueue::AddFindRequest(const string& raw_query) {
+    vector<Document> RequestQueue::AddFindRequest(string_view raw_query) {
         ++current_time_;
         const auto result = search_server_.FindTopDocuments(raw_query);
         RemoveOld();
